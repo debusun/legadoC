@@ -177,12 +177,12 @@ $versionName = '3.26.<MMddHH>' # <MMddHH> uses UTC; appC automatically appends c
 - 用户未指明构建路线时，"编译/正式编译/交付"一律指自用构建 `assembleAppC`（阅读C-自用），完全沿用"不可变交付约束"与本节的版本、产物规则；不得自行切换成开源构建。
 - 仅当用户明确要求“开源编译”“发布编译”或“oss 编译”时，才执行 `assembleOssRelease`；构建时传入 `-PVERSION_CODE` 和 `-PVERSION_NAME`，版本名不带 `c` 后缀，产物位于 `app\build\outputs\apk\oss\release\`，并使用 `aapt` 和 `apksigner` 验证；公开版固定包名为 `io.legado.app.c`、应用名为 `阅读C`。不得将 `assembleOssRelease` 产物作为自用版交付，也不得将 `assembleAppC` 产物作为公开版发布。
 - 用户明确要求"双编译"时，两个构建都执行：先自用 `assembleAppC`，再开源 `assembleOssRelease`，各自完整走一遍版本传参与产物验证；两包包名不同（自用 `io.legado.app.dev` / 公开 `io.legado.app.c`），互不影响覆盖安装，可共存装在同一设备。
-- 只允许构建两个 release 系产物：自用版 `assembleAppC` 和公开版 `assembleOssRelease`，绝对禁止任何 debug buildType。两个版本统一使用 SDK 自带的 debug 签名，不创建、不使用任何正式密钥；所有 APK 必须通过 `apksigner` 验证。
+- 只允许构建两个 release 系产物：自用版 `assembleAppC` 和公开版 `assembleOssRelease`，绝对禁止任何 debug buildType。自用版（appC）与公开版（oss）统一使用仓库根 `signing/debug.keystore` 签名（与 SDK debug 同口令体系、不同密钥，证书 SHA-256 见 README 签名说明；两版包名不同，覆盖安装靠包名区分）；`signing/` 只存本地、私有备份，公开镜像剥离，公开克隆缺文件时自动回退 SDK debug 签名；所有 APK 必须通过 `apksigner` 验证。
 
 开源源码发布（历史清洗镜像）：
 
 - 远程 `origin`（CCSSNE/legadoC）是公开仓库（默认分支 `own`）。`origin/own` = 本地完整历史剥离专有路径后的清洗镜像；本地 `own` = 完整私有历史，同步推送私有备份仓 `private`（CCSSNE/legadoC-private，已验证 `private:true`）。
-- 所有专有和自用代码必须放在剥离清单指定的路径中，现行专有代码统一放在 `app/src/app`。`AGENTS.md`、`docs`、`tools` 不在剥离范围，会随公开历史发布；新增专有功能前必须确认对应路径已经加入剥离清单。
+- 所有专有和自用代码必须放在剥离清单指定的路径中，现行专有代码统一放在 `app/src/app`；`signing/`（公开版签名密钥）同样只存本地，公开镜像剥离。`AGENTS.md`、`docs`、`tools` 不在剥离范围，会随公开历史发布；新增专有功能前必须确认对应路径已经加入剥离清单。
 - **严禁把本地 `own` 直接 `git push` 到 `origin/own`**：两边历史不同，非快进必被拒（这是防泄露保护，不得绕过）；强推会把专有历史重新公开。（私有备份仓 `private` 收的就是完整历史，直接 `git push private own` 快进属正常操作，不在禁止之列。）
 - 公开源码只能通过仓库根目录的 `publish-oss-source.ps1` 发布。脚本负责临时克隆、剥离专有路径、校验历史、生成公开镜像并推送到 `origin/own`，同时把完整私有历史推送到 `private`。禁止绕过脚本直接把本地 `own` 推送到 `origin/own`。
 - 已有 fork 与 GitHub 服务端缓存可能仍留存清洗前的旧对象；需要彻底清除时联系 GitHub Support（remove sensitive data）。
@@ -280,7 +280,7 @@ AI 铁律（死路，见到先复述给用户再定夺）：模型永远只当�
 
 仅保留最近一次已交付版本，下一次覆盖安装必须在此基础上递增：
 
-- 最近一次自用版交付为 `3.26.091507c` / `10898`，2026-09-15，基于提交 `78ed9850`（WebView池仅暂停自身实例，修复创作编辑器白屏）使用 `assembleAppC` 编译成功（`BUILD SUCCESSFUL in 5m 23s`，`75 actionable tasks: 20 executed, 55 up-to-date`）。产物包名 `io.legado.app.dev`、versionName `3.26.091507c`、versionCode `10898`、架构 `arm64-v8a`，`aapt` 确认应用名 `阅读C-自用`（label-zh 逐字匹配）、`apksigner verify` 退出码 0；APK 位于 `app\build\outputs\apk\app\c\legado_app_3.26.091507_10898.apk`（47.84 MB），尚未安装。
-- 最近一次公开版交付为 `3.26.091403` / `10897`，2026-09-14，基于提交 `eb1c1940`（README 追加 2026-09-08 至 09-14 更新记录）使用 `assembleOssRelease` 编译成功（`BUILD SUCCESSFUL in 5m 29s`，`121 actionable tasks: 29 executed, 2 from cache, 90 up-to-date`）。产物包名 `io.legado.app.c`、versionName `3.26.091403`（无 c 后缀）、versionCode `10897`、架构 `arm64-v8a`，`aapt` 确认应用名 `阅读C`（label-zh 逐字匹配）、`apksigner verify` 退出码 0；APK 位于 `app\build\outputs\apk\oss\release\legado_oss_3.26.091403_10897.apk`，已发布正式版 `v3.26.091403`（`prerelease=false`，复查 tag/正文/资产大小与下载 200 均正常）。
+- 最近一次自用版交付为 `3.26.101208c` / `10905`，2026-10-12，基于提交 `a74f1f6a`（蓝牙按键映射扩展为7键阅读朗读双态并删除旧音量耳机开关）使用 `assembleAppC` 编译成功（`BUILD SUCCESSFUL in 49s`，`75 actionable tasks: 20 executed, 55 up-to-date`）。产物包名 `io.legado.app.dev`、versionName `3.26.101208c`、versionCode `10905`、架构 `arm64-v8a`，`aapt` 确认应用名 `阅读C-自用`（label/label-zh 逐字匹配），`apksigner verify --print-certs` 确认证书 SHA-256 为仓库密钥 `70:CB:…:89:5C`、退出码 0；APK 位于 `app\build\outputs\apk\app\c\legado_app_3.26.101208_10905.apk`（47.87 MB），已通过 `adb install -r` 覆盖安装到设备 `1afaa639`（`dumpsys` 确认 versionCode `10905` / versionName `3.26.101208c`）。
+- 最近一次公开版交付为 `3.26.101209` / `10906`，2026-10-12，基于提交 `1e65e3aa`（宣传图追加第30张；含7键双态蓝牙映射的 `app/src/main` 主代码）使用 `assembleOssRelease` 编译成功（`BUILD SUCCESSFUL in 3m 55s`，`121 actionable tasks: 28 executed, 1 from cache, 92 up-to-date`）。产物包名 `io.legado.app.c`、versionName `3.26.101209`（无 c 后缀）、versionCode `10906`，`aapt` 确认应用名 `阅读C`（label-zh 逐字匹配），`apksigner verify --print-certs` 确认证书 SHA-256 为仓库密钥 `70:CB:…:89:5C`、退出码 0；APK 位于 `app\build\outputs\apk\oss\release\legado_oss_3.26.101209_10906.apk`（37.79 MB），已发布 Pre 版 `v3.26.101209`（release id `410410306`，`prerelease=true`，`make_latest=false`，Latest 仍为 `v3.26.100717`；复查 tag/目标分支/中文正文（与源字节比对一致）/资产 39618080 字节与下载 200 均正常）。
 
 每次交付后当场更新本节。历史发布信息应从 Git、GitHub Release 或提交记录查询，不在本文件累积。
